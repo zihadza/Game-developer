@@ -2014,4 +2014,53 @@ async function buildApk(){
 async function refreshBuild(){
   try{
     var d = await api('/api/build-status');
-    var cls = d.error ? 'err' : d.busy ? 'warn' : (d.status==='success'
+    var cls = d.error ? 'err' : d.busy ? 'warn' : (d.status==='success'?'ok':'');
+    $('buildStatus').className = 'pill ' + cls;
+    $('buildStatus').textContent = (d.busy?'⏳ ':'') + d.status + (d.project?' • '+d.project:'');
+    $('progressFill').style.width = (d.progress||0) + '%';
+    $('buildLog').textContent = (d.log||[]).join('\n') || 'No build logs yet.';
+    $('buildLog').scrollTop = $('buildLog').scrollHeight;
+    if(d.status === 'success' && !d.busy && !refreshBuild._celebrated){
+      refreshBuild._celebrated = true;
+      confetti(); toast('Build successful!','info'); refreshApks();
+      setTimeout(function(){ refreshBuild._celebrated = false; }, 30000);
+    }
+  }catch(e){}
+}
+
+async function refreshApks(){
+  try{
+    var a = await api('/api/apks');
+    var el = $('apksHome'); el.innerHTML = '';
+    if(!a.length){ el.innerHTML = '<small class="muted">No APKs yet. Build one →</small>'; return; }
+    a.forEach(function(x){
+      var d = document.createElement('div'); d.className = 'apkItem';
+      d.innerHTML =
+        '<div class="apkInfo"><div class="apkName">📦 '+esc(x.name)+'</div>' +
+        '<div class="apkSize">'+fmtSize(x.size)+' · '+fmtTime(x.modified)+'</div></div>' +
+        '<div class="apkBtns">' +
+          '<button class="btn sm green" data-a="i">Install</button>' +
+          '<a class="btn sm primary" href="/api/download-apk/'+encodeURIComponent(x.name)+'" download style="text-decoration:none">⬇</a>' +
+        '</div>';
+      d.querySelector('[data-a="i"]').onclick = async function(){
+        try{ var r = await api('/api/install-apk', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name:x.name})});
+          toast(r.message||'Installer opened','info'); }catch(e){ toast(e.message,'err'); }
+      };
+      el.appendChild(d);
+    });
+  }catch(e){}
+}
+
+// ============ Boot ============
+applyTheme();
+refreshAll();
+setInterval(refreshBuild, 2500);
+</script>
+</body>
+</html>'''
+
+if __name__ == '__main__':
+    print(f'⚡ Zihad 3D Game Studio v3 — http://127.0.0.1:{PORT}')
+    print(f'   Projects: {PROJECTS}')
+    print(f'   APK out:  {APK_OUT}')
+    app.run(host='127.0.0.1', port=PORT, debug=False, threaded=True)
